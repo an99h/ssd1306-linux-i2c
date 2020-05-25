@@ -30,13 +30,13 @@ int main()
         printf("can't open file ssd1306\r\n");
         return -1;
     }
-
+#if 0
     fd_ap3216c = open("/dev/ap3216c", O_RDWR);
     if (fd_ap3216c < 0) {
         printf("can't open file ap3216c\r\n");
         return -1;
     }
-
+#endif
     ioctl(fd_oled, CLEAR_SCREEN);
 
     struct io_ctrl ioctrl;
@@ -73,7 +73,8 @@ int main()
     ioctl(fd_oled, DRAW_VLINE, &ioctrl);
     ioctrl.vLine.x = 100;
     ioctl(fd_oled, DRAW_VLINE, &ioctrl);
-
+#endif
+#if 0
     while (1)
     {
         ret = read(fd_ap3216c, databuf, sizeof(databuf));
