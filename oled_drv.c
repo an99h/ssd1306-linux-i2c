@@ -9,6 +9,10 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/of_gpio.h>
+#include <linux/uaccess.h>
+
+#include <asm/pgtable.h>
+#include <linux/mm.h>
 
 #include "ioctrl_args.h"
 #include "ssd1306.h"
@@ -27,7 +31,7 @@ typedef struct _oled_ctx
 {
     struct cdev cdev;
     dev_t devid;
-
+    char* kernel_buf;
 } oled_ctx;
 
 static struct _chr_env chr_env;
@@ -36,6 +40,7 @@ static int oled_open(struct inode *node, struct file *file);
 static int oled_close(struct inode *node, struct file *file);
 static ssize_t oled_write(struct file *file, const char __user *buf, size_t size, loff_t *offset);
 static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+static int oled_mmap(struct file* file, struct vm_area_struct* vma);
 
 static int oled_remove(struct i2c_client *client);
 static int oled_probe(struct i2c_client* client,
@@ -48,6 +53,7 @@ static struct file_operations oled_ops = {
     .write   = oled_write,
     .release = oled_close,
     .unlocked_ioctl = oled_ioctl,
+    .mmap = oled_mmap,
 };
 
 
@@ -117,6 +123,7 @@ static ssize_t oled_write(struct file *file, const char __user *buf, size_t size
 static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     struct io_ctrl ioctrl;
+    oled_ctx* ctx = (oled_ctx*)file->private_data;
 
     switch (cmd)
     {
@@ -128,6 +135,9 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         break;
     case CLEAR_SCREEN:
         ssd1306_clear_screen(0x00);
+        break;
+    case REFRESH_SCREEN:
+        ssd1306_draw_image(ctx->kernel_buf);
         break;
 	case DRAW_RECT:
 	{
@@ -192,14 +202,33 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     return 0;
 }
 
+static int oled_mmap(struct file* file, struct vm_area_struct* vma)
+{
+    oled_ctx* ctx = (oled_ctx*)file->private_data;
+
+    /* 获得物理地址 */
+    unsigned long phy = virt_to_phys(ctx->kernel_buf);
+
+    /* 设置属性: cache, buffer */
+    vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+    /* map */
+    if (remap_pfn_range(vma, vma->vm_start, phy >> PAGE_SHIFT,
+        vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
+        printk("mmap remap_pfn_range failed\n");
+        return -ENOBUFS;
+    }
+
+    return 0;
+}
 
 static int oled_probe(struct i2c_client* client,
     const struct i2c_device_id* id)
 {
     int ret = 0;
     struct device *device = NULL;
-    oled_ctx *ctx = kmalloc(sizeof(oled_ctx), GFP_KERNEL);;
-    
+    oled_ctx *ctx = kmalloc(sizeof(oled_ctx), GFP_KERNEL);
+    ctx->kernel_buf = kmalloc(1024*8, GFP_KERNEL);
     i2c_set_clientdata(client, ctx);
     
     ctx->devid = MKDEV(chr_env.major, chr_env.number++);
@@ -251,6 +280,8 @@ static int oled_remove(struct i2c_client *client)
         unregister_chrdev_region(ctx->devid, DRV_COUNT);
     }
     
+    kfree(ctx->kernel_buf);
+    kfree(ctx);
     return 0;
 }
 

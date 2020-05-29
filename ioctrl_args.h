@@ -55,6 +55,7 @@ _IOWR(type,nr,size) // 双向数据传输
 #define OPEN_OLED_DISPLAY        _IO(0XEF, 0x1)
 #define CLOSE_OLED_DISPLAY       _IO(0XEF, 0x2)
 #define CLEAR_SCREEN             _IO(0XEF, 0x3)
+#define REFRESH_SCREEN           _IO(0XEF, 0x8)
 #define DRAW_RECT                _IOW(0XEF, 0x4, struct io_ctrl)
 #define DRAW_HLINE               _IOW(0XEF, 0x5, struct io_ctrl)
 #define DRAW_VLINE               _IOW(0XEF, 0x6, struct io_ctrl)

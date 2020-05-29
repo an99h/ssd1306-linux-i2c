@@ -1,4 +1,4 @@
-KERN_DIR = /root/linux/100ask_imx6ull-sdk/Linux-4.9.88
+KERN_DIR = /home/pi/Desktop/linux/rasberry_kernel
 
 all:
 	make -C $(KERN_DIR) M=`pwd` modules
@@ -10,3 +10,9 @@ clean:
 
 oled-y := oled_drv.o ssd1306.o
 obj-m  += oled.o
+
+install:
+	sudo insmod oled.ko
+
+uninstall:
+	sudo rmmod oled
